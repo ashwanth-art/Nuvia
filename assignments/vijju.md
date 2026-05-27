@@ -90,6 +90,13 @@ You do not need to wait for context assembly, policies, agents, or UI.
 - `infra`
 - `docs/INTEGRATION_PLAN.md`
 
+## Starter Code Files
+
+- `services/execution-os/src/index.js`
+- `services/audit-ledger/src/index.js`
+- `packages/connectors/src/index.js`
+- `infra/local-dev.env.example`
+
 ## Output Expected
 
 By the end of this track, the project should clearly show how a typed action is executed safely and how Nuvia records proof of what happened.

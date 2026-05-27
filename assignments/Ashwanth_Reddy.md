@@ -84,6 +84,14 @@ You do not need to wait for execution, UI, or agent work.
 - `docs/DECISION_CONTRACTS.md`
 - `docs/GOVERNANCE.md`
 
+## Starter Code Files
+
+- `services/event-ingress/src/index.js`
+- `services/context-assembly/src/index.js`
+- `services/policy-service/src/index.js`
+- `services/action-compiler/src/index.js`
+- `packages/schemas/src/index.js`
+
 ## Output Expected
 
 By the end of this track, the project should clearly show how a checkout event becomes a validated `DecisionRequest` and how policies decide whether it can become an action.

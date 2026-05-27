@@ -39,6 +39,36 @@ Example:
 7. High-risk actions go to human approval.
 8. Every decision is recorded for audit.
 
+## Starter Code
+
+This repository now includes Phase 1 starter code. It is intentionally dependency-free Node.js so the team can run it immediately.
+
+Run the demo:
+
+```bash
+npm run demo
+```
+
+Run tests:
+
+```bash
+npm test
+```
+
+The starter pipeline is:
+
+```text
+checkout event
+  -> event ingress
+  -> context assembly
+  -> policy evaluation
+  -> decision plan
+  -> action compiler
+  -> execution OS
+  -> audit ledger
+  -> control room snapshot
+```
+
 ## What Nuvia Does
 
 Nuvia is not just a chatbot and not just a model wrapper. It is a controlled operating layer for commercial decisions.
@@ -122,6 +152,7 @@ Nuvia/
     INTEGRATION_PLAN.md
     TEAM_WORKFLOW.md
   examples/
+    run-phase1-demo.mjs
     fixtures/
       checkout-event.sample.json
       decision-request.sample.json
@@ -129,34 +160,40 @@ Nuvia/
       execution-receipt.sample.json
   apps/
     control-room/
-      README.md
+      src/dashboard.js
   services/
     event-ingress/
-      README.md
+      src/index.js
     context-assembly/
-      README.md
+      src/index.js
     policy-service/
-      README.md
+      src/index.js
     agent-orchestrator/
-      README.md
+      src/index.js
     action-compiler/
-      README.md
+      src/index.js
     execution-os/
-      README.md
+      src/index.js
     audit-ledger/
-      README.md
+      src/index.js
   packages/
     schemas/
-      README.md
+      src/index.js
     connectors/
-      README.md
+      src/index.js
     evaluation/
-      README.md
+      src/index.js
   infra/
-    README.md
+    local-dev.env.example
   tests/
-    README.md
+    phase1.test.mjs
 ```
+
+## Code Ownership Map
+
+- `services/event-ingress`, `services/context-assembly`, `services/policy-service`, `services/action-compiler`, and `packages/schemas` are mainly for Ashwanth Reddy.
+- `services/execution-os`, `services/audit-ledger`, `packages/connectors`, and `infra` are mainly for vijju.
+- `apps/control-room`, `services/agent-orchestrator`, `packages/evaluation`, and UI-facing contracts are mainly for chaitanya.
 
 ## Team Ownership
 

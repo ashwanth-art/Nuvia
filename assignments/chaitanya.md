@@ -85,6 +85,13 @@ You do not need to wait for production services. Build with mock API responses f
 - `docs/ARCHITECTURE.md`
 - `docs/MVP_SCOPE.md`
 
+## Starter Code Files
+
+- `apps/control-room/src/dashboard.js`
+- `services/agent-orchestrator/src/index.js`
+- `packages/evaluation/src/index.js`
+- `examples/run-phase1-demo.mjs`
+
 ## Output Expected
 
 By the end of this track, the project should clearly show how business users will monitor, review, approve, and understand Nuvia decisions.
