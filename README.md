@@ -150,6 +150,9 @@ Nuvia/
     DECISION_CONTRACTS.md
     GOVERNANCE.md
     INTEGRATION_PLAN.md
+    PROJECT_DELIVERY_PLAN.md
+    LIVE_DATA_STRATEGY.md
+    TEST_STRATEGY.md
     TEAM_WORKFLOW.md
   examples/
     run-phase1-demo.mjs
@@ -167,6 +170,8 @@ Nuvia/
     context-assembly/
       src/index.js
     policy-service/
+      src/index.js
+    live-data-gateway/
       src/index.js
     agent-orchestrator/
       src/index.js
@@ -194,6 +199,14 @@ Nuvia/
 - `services/event-ingress`, `services/context-assembly`, `services/policy-service`, `services/action-compiler`, and `packages/schemas` are mainly for Ashwanth Reddy.
 - `services/execution-os`, `services/audit-ledger`, `packages/connectors`, and `infra` are mainly for vijju.
 - `apps/control-room`, `services/agent-orchestrator`, `packages/evaluation`, and UI-facing contracts are mainly for chaitanya.
+
+## Complete Project Docs
+
+- `docs/PROJECT_DELIVERY_PLAN.md` explains how to move from starter code to complete project.
+- `docs/LIVE_DATA_STRATEGY.md` explains how live data should enter Nuvia safely.
+- `docs/TEST_STRATEGY.md` explains the required test layers and scenarios.
+
+Live data must go through `services/live-data-gateway` before event ingress. The gateway sanitizes sensitive fields, validates batches, and reports accepted/rejected events.
 
 ## Team Ownership
 
