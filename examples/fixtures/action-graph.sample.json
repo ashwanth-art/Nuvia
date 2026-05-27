@@ -1,0 +1,31 @@
+{
+  "action_graph_id": "ag_001",
+  "decision_id": "dec_001",
+  "idempotency_key": "tenant_demo_retail:req_001:checkout_offer",
+  "approval_status": "not_required",
+  "actions": [
+    {
+      "action_id": "act_001",
+      "type": "LOYALTY_APPLY_POINTS_MULTIPLIER",
+      "connector_id": "loyalty_core_demo",
+      "operation_id": "apply_points_multiplier",
+      "parameters": {
+        "customer_id": "cust_123",
+        "basket_id": "basket_001",
+        "multiplier": 2,
+        "eligible_sku_scope": [
+          "sku_accessory_001"
+        ],
+        "expires_at": "2026-05-27T11:00:00Z"
+      },
+      "policy_refs": [
+        "policy.points.multiplier.max.demo_v1",
+        "policy.margin.floor.demo_v1"
+      ],
+      "rollback": {
+        "strategy": "compensating_action",
+        "operation_id": "remove_points_multiplier"
+      }
+    }
+  ]
+}

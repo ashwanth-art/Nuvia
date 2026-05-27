@@ -1,0 +1,16 @@
+{
+  "receipt_id": "rec_001",
+  "action_graph_id": "ag_001",
+  "status": "completed",
+  "started_at": "2026-05-27T10:00:01Z",
+  "completed_at": "2026-05-27T10:00:01Z",
+  "actions": [
+    {
+      "action_id": "act_001",
+      "status": "success",
+      "connector_id": "loyalty_core_demo",
+      "external_reference": "loy_tx_998877"
+    }
+  ],
+  "audit_ref": "audit_decision_001"
+}

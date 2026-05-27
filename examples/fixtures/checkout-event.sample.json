@@ -1,0 +1,35 @@
+{
+  "event_id": "evt_checkout_001",
+  "tenant_id": "tenant_demo_retail",
+  "event_type": "checkout.started",
+  "event_time": "2026-05-27T10:00:00Z",
+  "source": {
+    "system": "pos",
+    "location_id": "store_101",
+    "terminal_id": "pos_08"
+  },
+  "customer": {
+    "customer_id": "cust_123",
+    "loyalty_id": "loy_456",
+    "consent_profile_id": "consent_789"
+  },
+  "basket": {
+    "basket_id": "basket_001",
+    "currency": "USD",
+    "subtotal": 84.5,
+    "items": [
+      {
+        "sku": "sku_accessory_001",
+        "quantity": 1,
+        "unit_price": 29.5,
+        "margin_percent": 42
+      },
+      {
+        "sku": "sku_core_002",
+        "quantity": 1,
+        "unit_price": 55,
+        "margin_percent": 24
+      }
+    ]
+  }
+}
