@@ -55,6 +55,34 @@ Run tests:
 npm test
 ```
 
+Run the Flask + React product shell:
+
+```bash
+cd backend
+pip install -r requirements.txt
+python app.py
+```
+
+Then open:
+
+```text
+http://127.0.0.1:5000
+```
+
+If Python is not installed yet, the React UI can still be previewed locally with the Node helper:
+
+```bash
+npm run ui:preview
+```
+
+Open:
+
+```text
+http://127.0.0.1:4173
+```
+
+The production-intended backend remains `backend/app.py` using Flask.
+
 The starter pipeline is:
 
 ```text
@@ -153,6 +181,7 @@ Nuvia/
     PROJECT_DELIVERY_PLAN.md
     LIVE_DATA_STRATEGY.md
     TEST_STRATEGY.md
+    MANUAL_UI_CHECKLIST.md
     TEAM_WORKFLOW.md
   examples/
     run-phase1-demo.mjs
@@ -163,7 +192,14 @@ Nuvia/
       execution-receipt.sample.json
   apps/
     control-room/
+      static/index.html
+      static/app.js
+      static/styles.css
       src/dashboard.js
+  backend/
+    app.py
+    nuvia_core.py
+    requirements.txt
   services/
     event-ingress/
       src/index.js

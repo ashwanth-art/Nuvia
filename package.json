@@ -6,6 +6,7 @@
   "description": "Nuvia phase 1 starter code for governed enterprise decision orchestration.",
   "scripts": {
     "demo": "node examples/run-phase1-demo.mjs",
+    "ui:preview": "node tools/ui-preview-server.mjs",
     "test": "node --test tests/*.test.mjs"
   },
   "engines": {
