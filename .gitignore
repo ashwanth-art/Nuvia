@@ -15,6 +15,10 @@ coverage/
 # Logs
 *.log
 
+# Local runtime data
+data/
+*.sqlite3
+
 # OS and editor files
 .DS_Store
 Thumbs.db

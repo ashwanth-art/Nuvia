@@ -14,6 +14,15 @@ const API = {
     });
     if (!response.ok) throw new Error(`POST ${path} failed`);
     return response.json();
+  },
+  async put(path, payload) {
+    const response = await fetch(path, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    if (!response.ok) throw new Error(`PUT ${path} failed`);
+    return response.json();
   }
 };
 
@@ -21,13 +30,21 @@ function App() {
   const [scenarios, setScenarios] = useState([]);
   const [activeScenario, setActiveScenario] = useState("safe-offer");
   const [decision, setDecision] = useState(null);
+  const [dashboard, setDashboard] = useState(null);
   const [source, setSource] = useState(null);
   const [sampleEvent, setSampleEvent] = useState(null);
+  const [storedDecisions, setStoredDecisions] = useState([]);
+  const [approvals, setApprovals] = useState([]);
+  const [policies, setPolicies] = useState([]);
+  const [connectors, setConnectors] = useState([]);
+  const [simulations, setSimulations] = useState([]);
+  const [auditEvents, setAuditEvents] = useState([]);
   const [tests, setTests] = useState([]);
   const [team, setTeam] = useState([]);
   const [tab, setTab] = useState("decision");
   const [batchText, setBatchText] = useState("");
   const [batchResult, setBatchResult] = useState(null);
+  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -36,12 +53,13 @@ function App() {
 
   useEffect(() => {
     if (activeScenario) {
-      loadScenario(activeScenario);
+      previewScenario(activeScenario);
     }
   }, [activeScenario]);
 
   async function loadInitial() {
     try {
+      setError("");
       const [scenarioData, sourceData, sampleData, testData, teamData] = await Promise.all([
         API.get("/api/scenarios"),
         API.get("/api/live-data/source"),
@@ -55,17 +73,109 @@ function App() {
       setBatchText(JSON.stringify({ events: [sampleData.event] }, null, 2));
       setTests(testData.tests);
       setTeam(teamData.team);
+      await refreshWorkspace();
     } catch (loadError) {
-      setError(`Could not load backend data: ${loadError.message}`);
+      setError(`Could not load product data: ${loadError.message}`);
     }
   }
 
-  async function loadScenario(key) {
+  async function refreshWorkspace() {
+    const [dashboardData, decisionData, approvalData, policyData, connectorData, simulationData, auditData] = await Promise.all([
+      API.get("/api/dashboard"),
+      API.get("/api/decisions"),
+      API.get("/api/approvals"),
+      API.get("/api/policies"),
+      API.get("/api/connectors"),
+      API.get("/api/simulations"),
+      API.get("/api/audit")
+    ]);
+    setDashboard(dashboardData);
+    setStoredDecisions(decisionData.decisions || []);
+    setApprovals(approvalData.approvals || []);
+    setPolicies(policyData.policies || []);
+    setConnectors(connectorData.connectors || []);
+    setSimulations(simulationData.simulations || []);
+    setAuditEvents(auditData.audit_events || []);
+  }
+
+  async function previewScenario(key) {
     try {
       setError("");
-      setDecision(await API.get(`/api/decisions/${key}`));
+      const result = await API.get(`/api/decisions/${key}`);
+      setDecision(result);
     } catch (loadError) {
-      setError(`Could not run scenario: ${loadError.message}`);
+      setError(`Could not preview scenario: ${loadError.message}`);
+    }
+  }
+
+  async function runSelectedScenario() {
+    try {
+      setError("");
+      setMessage("");
+      const stored = await API.post("/api/decisions/run", { scenario_key: activeScenario });
+      setDecision(stored.payload);
+      setMessage(`Stored decision ${stored.id}`);
+      await refreshWorkspace();
+      setTab("decision");
+    } catch (runError) {
+      setError(`Could not run scenario: ${runError.message}`);
+    }
+  }
+
+  async function openStoredDecision(decisionId) {
+    const stored = await API.get(`/api/stored-decisions/${decisionId}`);
+    setDecision(stored.payload);
+    setTab("decision");
+  }
+
+  async function submitApproval(approvalId, action) {
+    try {
+      setError("");
+      const stored = await API.post(`/api/approvals/${approvalId}/decision`, {
+        action,
+        reviewer: "control-room-operator",
+        note: `${action} from Control Room`
+      });
+      setDecision(stored.payload);
+      setMessage(`Approval ${action}`);
+      await refreshWorkspace();
+      setTab("decision");
+    } catch (approvalError) {
+      setError(`Approval update failed: ${approvalError.message}`);
+    }
+  }
+
+  async function updatePolicy(policy) {
+    try {
+      setError("");
+      await API.put(`/api/policies/${policy.id}`, policy);
+      setMessage(`Updated ${policy.name}`);
+      await refreshWorkspace();
+    } catch (policyError) {
+      setError(`Policy update failed: ${policyError.message}`);
+    }
+  }
+
+  async function updateConnector(connectorId, status) {
+    try {
+      setError("");
+      await API.post(`/api/connectors/${connectorId}/health`, { status });
+      setMessage(`Connector ${connectorId} marked ${status}`);
+      await refreshWorkspace();
+    } catch (connectorError) {
+      setError(`Connector update failed: ${connectorError.message}`);
+    }
+  }
+
+  async function runSimulation(scenarioKey) {
+    try {
+      setError("");
+      const result = await API.post("/api/simulations/run", { scenario_key: scenarioKey });
+      setMessage(`Simulation ${result.id} completed`);
+      await refreshWorkspace();
+      setTab("simulation");
+    } catch (simulationError) {
+      setError(`Simulation failed: ${simulationError.message}`);
     }
   }
 
@@ -74,38 +184,55 @@ function App() {
       setError("");
       const payload = JSON.parse(batchText);
       const events = Array.isArray(payload) ? payload : payload.events;
-      setBatchResult(await API.post("/api/live-data/ingest", { events }));
+      const result = await API.post("/api/live-data/ingest", { events });
+      setBatchResult(result);
+      setMessage(`Live batch accepted ${result.accepted_count}, rejected ${result.rejected_count}`);
+      await refreshWorkspace();
       setTab("live-data");
     } catch (submitError) {
       setError(`Batch failed: ${submitError.message}`);
     }
   }
 
-  const metrics = useMemo(() => buildMetrics(decision), [decision]);
+  const metrics = useMemo(() => buildMetrics(dashboard, decision), [dashboard, decision]);
 
   return h("div", { className: "app-shell" }, [
     h(Header, { key: "header" }),
     h("main", { className: "main", key: "main" }, [
       error ? h("div", { className: "error", key: "error" }, error) : null,
+      message ? h("div", { className: "notice", key: "message" }, message) : null,
       h("section", { className: "hero-band", key: "hero" }, [
         h("div", { className: "intro", key: "intro" }, [
           h("h1", null, "Nuvia Control Room"),
           h(
             "p",
             null,
-            "A Flask + React product shell for governed loyalty decisions, live-data sanitization, policy checks, execution receipts, audit trails, and manual scenario testing."
+            "Complete local MVP for governed loyalty decisions: live-data gateway, policy center, approvals, execution receipts, connector health, simulation, audit, and tests."
           )
         ]),
         h(LiveSourceBox, { source, key: "source" })
       ]),
       h(MetricsGrid, { metrics, key: "metrics" }),
       h("section", { className: "workspace", key: "workspace" }, [
-        h(ScenarioPanel, { scenarios, activeScenario, setActiveScenario, key: "scenarios" }),
+        h(ScenarioPanel, {
+          scenarios,
+          activeScenario,
+          setActiveScenario,
+          runSelectedScenario,
+          runSimulation,
+          storedDecisions,
+          openStoredDecision,
+          key: "scenarios"
+        }),
         h("div", { className: "panel", key: "detail" }, [
           h(Tabs, { tab, setTab, key: "tabs" }),
           tab === "decision" ? h(DecisionView, { decision, key: "decision" }) : null,
+          tab === "approvals" ? h(ApprovalsView, { approvals, submitApproval, key: "approvals" }) : null,
           tab === "live-data" ? h(LiveDataView, { source, sampleEvent, batchText, setBatchText, submitBatch, batchResult, key: "live" }) : null,
-          tab === "audit" ? h(AuditView, { decision, key: "audit" }) : null,
+          tab === "policies" ? h(PoliciesView, { policies, setPolicies, updatePolicy, key: "policies" }) : null,
+          tab === "connectors" ? h(ConnectorsView, { connectors, updateConnector, key: "connectors" }) : null,
+          tab === "simulation" ? h(SimulationView, { scenarios, simulations, runSimulation, key: "simulation" }) : null,
+          tab === "audit" ? h(AuditView, { decision, auditEvents, key: "audit" }) : null,
           tab === "tests" ? h(TestsView, { tests, decision, key: "tests" }) : null,
           tab === "team" ? h(TeamView, { team, key: "team" }) : null
         ])
@@ -123,6 +250,7 @@ function Header() {
     h("div", { className: "top-actions", key: "actions" }, [
       h("span", { className: "status pass" }, "Flask backend"),
       h("span", { className: "status pass" }, "React frontend"),
+      h("span", { className: "status review" }, "Local SQLite"),
       h("span", { className: "status review" }, "Demo live data")
     ])
   ]);
@@ -155,10 +283,10 @@ function MetricsGrid({ metrics }) {
   );
 }
 
-function ScenarioPanel({ scenarios, activeScenario, setActiveScenario }) {
+function ScenarioPanel({ scenarios, activeScenario, setActiveScenario, runSelectedScenario, runSimulation, storedDecisions, openStoredDecision }) {
   return h("aside", { className: "panel" }, [
-    h("h2", null, "Manual Scenarios"),
-    h("p", { className: "muted" }, "Run each scenario to manually verify policy, action graph, execution, audit, and evaluation behavior."),
+    h("h2", null, "Decision Workbench"),
+    h("p", { className: "muted" }, "Preview scenarios, store real runs, and open persisted decisions."),
     h(
       "div",
       { className: "scenario-list" },
@@ -176,6 +304,23 @@ function ScenarioPanel({ scenarios, activeScenario, setActiveScenario }) {
           ]
         )
       )
+    ),
+    h("div", { className: "button-row" }, [
+      h("button", { className: "primary-button", onClick: runSelectedScenario }, "Run And Store"),
+      h("button", { className: "secondary-button", onClick: () => runSimulation(activeScenario) }, "Simulate")
+    ]),
+    h("h2", { className: "section-title" }, "Stored Decisions"),
+    h(
+      "div",
+      { className: "history-list" },
+      storedDecisions.length
+        ? storedDecisions.map((item) =>
+            h("button", { className: "history-item", key: item.id, onClick: () => openStoredDecision(item.id) }, [
+              h("span", { className: "scenario-name" }, item.scenario_key),
+              h("span", { className: "scenario-desc" }, `${item.policy_decision} / ${item.execution_status}`)
+            ])
+          )
+        : h("div", { className: "muted" }, "No stored runs yet.")
     )
   ]);
 }
@@ -183,7 +328,11 @@ function ScenarioPanel({ scenarios, activeScenario, setActiveScenario }) {
 function Tabs({ tab, setTab }) {
   const tabs = [
     ["decision", "Decision"],
+    ["approvals", "Approvals"],
     ["live-data", "Live Data"],
+    ["policies", "Policies"],
+    ["connectors", "Connectors"],
+    ["simulation", "Simulation"],
     ["audit", "Audit"],
     ["tests", "Tests"],
     ["team", "Team"]
@@ -192,15 +341,7 @@ function Tabs({ tab, setTab }) {
     "div",
     { className: "tabs" },
     tabs.map(([key, label]) =>
-      h(
-        "button",
-        {
-          className: `tab ${tab === key ? "active" : ""}`,
-          key,
-          onClick: () => setTab(key)
-        },
-        label
-      )
+      h("button", { className: `tab ${tab === key ? "active" : ""}`, key, onClick: () => setTab(key) }, label)
     )
   );
 }
@@ -226,7 +367,7 @@ function DecisionView({ decision }) {
       h("span", { className: `status ${receipt.status}` }, receipt.status),
       h("div", { className: "row-list", style: { marginTop: "12px" } }, [
         row("Action graph", graph.action_graph_id),
-        row("Actions", String(graph.actions.length)),
+        row("Approval status", graph.approval_status),
         row("Receipt", receipt.receipt_id)
       ])
     ]),
@@ -256,6 +397,133 @@ function DecisionView({ decision }) {
   ]);
 }
 
+function ApprovalsView({ approvals, submitApproval }) {
+  return h("div", { className: "approval-list" }, [
+    approvals.length
+      ? approvals.map((approval) =>
+          h("div", { className: "mini-card", key: approval.id }, [
+            h("div", { className: "policy-head" }, [
+              h("strong", null, approval.scenario_key),
+              h("span", { className: `status ${approval.status}` }, approval.status)
+            ]),
+            h("div", { className: "row-list", style: { marginTop: "12px" } }, [
+              row("Approval ID", approval.id),
+              row("Decision ID", approval.decision_id),
+              row("Policy decision", approval.policy_decision),
+              row("Execution", approval.execution_status)
+            ]),
+            h("p", { className: "muted" }, approval.reason),
+            h("div", { className: "button-row" }, [
+              h("button", { className: "primary-button", onClick: () => submitApproval(approval.id, "approved") }, "Approve"),
+              h("button", { className: "secondary-button", onClick: () => submitApproval(approval.id, "rejected") }, "Reject"),
+              h("button", { className: "secondary-button", onClick: () => submitApproval(approval.id, "escalated") }, "Escalate")
+            ])
+          ])
+        )
+      : h("div", { className: "muted" }, "No approval items. Run the Medium Fraud or Low Margin scenario and store it.")
+  ]);
+}
+
+function PoliciesView({ policies, setPolicies, updatePolicy }) {
+  function changePolicy(index, field, value) {
+    setPolicies(policies.map((policy, currentIndex) => (currentIndex === index ? { ...policy, [field]: value } : policy)));
+  }
+  return h(
+    "div",
+    { className: "policy-list" },
+    policies.map((policy, index) =>
+      h("div", { className: "mini-card", key: policy.id }, [
+        h("div", { className: "policy-head" }, [
+          h("strong", null, policy.name),
+          h("span", { className: "status pass" }, policy.category)
+        ]),
+        h("p", { className: "muted" }, policy.description),
+        h("div", { className: "form-grid" }, [
+          h("label", null, [
+            "Enabled",
+            h("input", {
+              type: "checkbox",
+              checked: Boolean(policy.enabled),
+              onChange: (event) => changePolicy(index, "enabled", event.target.checked ? 1 : 0)
+            })
+          ]),
+          h("label", null, [
+            "Threshold",
+            h("input", {
+              type: "number",
+              step: "0.01",
+              value: policy.threshold ?? "",
+              onChange: (event) => changePolicy(index, "threshold", Number(event.target.value))
+            })
+          ])
+        ]),
+        h("div", { className: "button-row" }, [h("button", { className: "primary-button", onClick: () => updatePolicy(policy) }, "Save Policy")])
+      ])
+    )
+  );
+}
+
+function ConnectorsView({ connectors, updateConnector }) {
+  return h(
+    "div",
+    { className: "connector-grid" },
+    connectors.map((connector) =>
+      h("div", { className: "task-card", key: connector.id }, [
+        h("div", { className: "policy-head" }, [
+          h("h3", null, connector.name),
+          h("span", { className: `status ${connector.status}` }, connector.status)
+        ]),
+        h("div", { className: "row-list" }, [
+          row("Risk", connector.risk_class),
+          row("Latency", `${connector.latency_ms} ms`),
+          row("Error rate", `${Math.round(connector.error_rate * 100)}%`),
+          row("Operations", connector.operations.join(", "))
+        ]),
+        h("div", { className: "button-row" }, [
+          h("button", { className: "secondary-button", onClick: () => updateConnector(connector.id, "healthy") }, "Healthy"),
+          h("button", { className: "secondary-button", onClick: () => updateConnector(connector.id, "degraded") }, "Degraded"),
+          h("button", { className: "secondary-button", onClick: () => updateConnector(connector.id, "down") }, "Down")
+        ])
+      ])
+    )
+  );
+}
+
+function SimulationView({ scenarios, simulations, runSimulation }) {
+  return h("div", { className: "detail-grid" }, [
+    h("div", { className: "mini-card full-span" }, [
+      h("h3", null, "Run Simulation"),
+      h("p", { className: "muted" }, "Simulations use the active policy thresholds without executing connectors."),
+      h(
+        "div",
+        { className: "button-row" },
+        scenarios.map((scenario) =>
+          h("button", { className: "secondary-button", key: scenario.key, onClick: () => runSimulation(scenario.key) }, scenario.name)
+        )
+      )
+    ]),
+    h("div", { className: "mini-card full-span" }, [
+      h("h3", null, "Simulation History"),
+      simulations.length
+        ? h(
+            "div",
+            { className: "test-list" },
+            simulations.map((simulation) =>
+              h("div", { className: "test-item", key: simulation.id }, [
+                h("div", { className: "test-head" }, [
+                  h("strong", null, simulation.scenario_key),
+                  h("span", { className: `status ${simulation.policy_decision}` }, simulation.policy_decision)
+                ]),
+                h("div", { className: "muted" }, `Expected action: ${simulation.expected_action}`),
+                h("pre", { className: "code-block" }, JSON.stringify(simulation.expected_impact, null, 2))
+              ])
+            )
+          )
+        : h("div", { className: "muted" }, "No simulations yet.")
+    ])
+  ]);
+}
+
 function PolicyItem({ check }) {
   const statusClass = check.result === "pass" ? "pass" : check.result;
   return h("div", { className: "policy-item" }, [
@@ -279,7 +547,7 @@ function LiveDataView({ source, sampleEvent, batchText, setBatchText, submitBatc
     ]),
     h("div", { className: "mini-card full-span" }, [
       h("h3", null, "Manual Batch Test"),
-      h("p", { className: "muted" }, "Paste demo events here. Try adding email, phone, card_number, or an unsupported event_type to verify redaction/rejection."),
+      h("p", { className: "muted" }, "Paste demo events. Add email, phone, card_number, or an unsupported event_type to verify redaction/rejection."),
       h("textarea", { value: batchText, onChange: (event) => setBatchText(event.target.value) }),
       h("div", { className: "button-row" }, [
         h("button", { className: "primary-button", onClick: submitBatch }, "Run Live Data Gateway"),
@@ -293,7 +561,8 @@ function LiveDataView({ source, sampleEvent, batchText, setBatchText, submitBatc
           h("h3", null, "Gateway Result"),
           h("div", { className: "row-list" }, [
             row("Accepted", String(batchResult.accepted_count)),
-            row("Rejected", String(batchResult.rejected_count))
+            row("Rejected", String(batchResult.rejected_count)),
+            row("Stored decisions", String(batchResult.stored_decisions?.length || 0))
           ]),
           h("pre", { className: "code-block", style: { marginTop: "12px" } }, JSON.stringify(batchResult, null, 2))
         ])
@@ -301,14 +570,29 @@ function LiveDataView({ source, sampleEvent, batchText, setBatchText, submitBatc
   ]);
 }
 
-function AuditView({ decision }) {
-  if (!decision) return h("div", { className: "muted" }, "Loading audit...");
-  return h("div", { className: "audit-list" }, decision.audit_records.map((record) => h("div", { className: "audit-item", key: record.audit_id }, [
+function AuditView({ decision, auditEvents }) {
+  const localRecords = decision?.audit_records || [];
+  return h("div", { className: "detail-grid" }, [
+    h("div", { className: "mini-card full-span" }, [
+      h("h3", null, "Current Decision Audit"),
+      h("div", { className: "audit-list" }, localRecords.map((record) => auditItem(record, record.audit_id)))
+    ]),
+    h("div", { className: "mini-card full-span" }, [
+      h("h3", null, "Persisted Audit Ledger"),
+      auditEvents.length
+        ? h("div", { className: "audit-list" }, auditEvents.map((record) => auditItem(record, record.audit_id)))
+        : h("div", { className: "muted" }, "No persisted audit events yet.")
+    ])
+  ]);
+}
+
+function auditItem(record, key) {
+  return h("div", { className: "audit-item", key }, [
     h("strong", null, record.type),
     h("div", { className: "muted" }, `Audit ID: ${record.audit_id}`),
-    h("div", { className: "muted" }, `Payload hash: ${record.payload_hash}`),
+    record.payload_hash ? h("div", { className: "muted" }, `Payload hash: ${record.payload_hash}`) : null,
     h("pre", { className: "code-block" }, JSON.stringify(record.payload, null, 2))
-  ])));
+  ]);
 }
 
 function TestsView({ tests, decision }) {
@@ -342,13 +626,12 @@ function TeamView({ team }) {
   ])));
 }
 
-function buildMetrics(decision) {
-  const dashboard = decision?.dashboard || {};
+function buildMetrics(dashboard, decision) {
   return [
-    { label: "Policy decision", value: dashboard.policy_decision || "-", note: "allow, review, or block" },
-    { label: "Approval queue", value: String(dashboard.approval_queue ?? "-"), note: "items waiting for review" },
-    { label: "Execution", value: dashboard.execution_status || "-", note: "current action status" },
-    { label: "Audit events", value: String(dashboard.audit_events ?? "-"), note: "immutable records" }
+    { label: "Total decisions", value: String(dashboard?.decision_volume ?? 0), note: "persisted local runs" },
+    { label: "Approval queue", value: String(dashboard?.approval_queue ?? 0), note: "pending human review" },
+    { label: "Current decision", value: decision?.policy_result?.decision || "-", note: "previewed scenario state" },
+    { label: "Audit events", value: String(dashboard?.audit_events ?? decision?.audit_records?.length ?? 0), note: "ledger records" }
   ];
 }
 

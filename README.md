@@ -39,9 +39,9 @@ Example:
 7. High-risk actions go to human approval.
 8. Every decision is recorded for audit.
 
-## Starter Code
+## Local MVP Code
 
-This repository now includes Phase 1 starter code. It is intentionally dependency-free Node.js so the team can run it immediately.
+This repository now includes the local Nuvia MVP. The core decision pipeline has dependency-free Node.js tests, and the product shell uses Flask, SQLite, and a React UI.
 
 Run the demo:
 
@@ -78,7 +78,7 @@ npm run ui:preview
 Open:
 
 ```text
-http://127.0.0.1:4173
+http://127.0.0.1:5187
 ```
 
 The production-intended backend remains `backend/app.py` using Flask.
@@ -199,6 +199,7 @@ Nuvia/
   backend/
     app.py
     nuvia_core.py
+    store.py
     requirements.txt
   services/
     event-ingress/
@@ -241,6 +242,8 @@ Nuvia/
 - `docs/PROJECT_DELIVERY_PLAN.md` explains how to move from starter code to complete project.
 - `docs/LIVE_DATA_STRATEGY.md` explains how live data should enter Nuvia safely.
 - `docs/TEST_STRATEGY.md` explains the required test layers and scenarios.
+- `docs/LOCAL_MVP_COMPLETION.md` explains what is completed in the local MVP.
+- `docs/MANUAL_UI_CHECKLIST.md` explains how to manually test the UI.
 
 Live data must go through `services/live-data-gateway` before event ingress. The gateway sanitizes sensitive fields, validates batches, and reports accepted/rejected events.
 

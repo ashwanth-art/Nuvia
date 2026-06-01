@@ -251,12 +251,12 @@ def live_data_source_summary() -> dict[str, Any]:
     }
 
 
-def run_scenario(key: str = "safe-offer") -> dict[str, Any]:
+def run_scenario(key: str = "safe-offer", policy_overrides: dict[str, Any] | None = None) -> dict[str, Any]:
     scenario = get_scenario(key)
     event = sample_checkout_event()
     event["event_id"] = f"evt_{key}"
     event = apply_event_overrides(event, scenario.overrides)
-    result = run_decision_pipeline(redact_sensitive_fields(event), scenario.overrides)
+    result = run_decision_pipeline(redact_sensitive_fields(event), scenario.overrides, policy_overrides)
     result["scenario"] = {
         "key": scenario.key,
         "name": scenario.name,
@@ -265,11 +265,16 @@ def run_scenario(key: str = "safe-offer") -> dict[str, Any]:
     return result
 
 
-def run_decision_pipeline(event: dict[str, Any], overrides: dict[str, Any] | None = None) -> dict[str, Any]:
+def run_decision_pipeline(
+    event: dict[str, Any],
+    overrides: dict[str, Any] | None = None,
+    policy_overrides: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     overrides = overrides or {}
+    policies = {**DEFAULT_POLICIES, **(policy_overrides or {})}
     validate_checkout_event(event)
     request, context, context_pack = assemble_context(event, overrides)
-    policy_result = evaluate_policies(request, context)
+    policy_result = evaluate_policies(request, context, policies)
     plan = create_decision_plan(request, context, policy_result)
     action_graph = compile_action_graph(plan)
     receipt = execute_action_graph(action_graph)
@@ -385,12 +390,17 @@ def assemble_context(event: dict[str, Any], overrides: dict[str, Any]) -> tuple[
     return request, context, context_pack
 
 
-def evaluate_policies(request: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+def evaluate_policies(
+    request: dict[str, Any],
+    context: dict[str, Any],
+    policies: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    active_policies = {**DEFAULT_POLICIES, **(policies or {})}
     checks = [
-        check_consent(context),
-        check_margin(context),
-        check_fraud(context),
-        check_basket_exposure(context),
+        check_consent(context, active_policies),
+        check_margin(context, active_policies),
+        check_fraud(context, active_policies),
+        check_basket_exposure(context, active_policies),
     ]
     blocked = any(check["result"] == "block" for check in checks)
     review = any(check["result"] == "review" for check in checks)
@@ -599,8 +609,10 @@ def team_progress() -> list[dict[str, Any]]:
                 "Policy allow/review/block",
                 "Action graph compiler",
                 "Shared decision contracts",
+                "Policy persistence",
+                "Policy editor APIs",
             ],
-            "next": ["Persist policies", "Add redemption event contract", "Add policy editor APIs"],
+            "next": ["Production redemption contracts after deployment scope starts"],
         },
         {
             "owner": "vijju",
@@ -610,8 +622,11 @@ def team_progress() -> list[dict[str, Any]]:
                 "Execution receipt",
                 "Audit records",
                 "Live data gateway redaction",
+                "SQLite persistence",
+                "Connector health API",
+                "Approval execution updates",
             ],
-            "next": ["Real connector adapters", "Idempotency persistence", "Retry and dead-letter storage"],
+            "next": ["Real connector adapters when customer credentials are available"],
         },
         {
             "owner": "chaitanya",
@@ -622,8 +637,12 @@ def team_progress() -> list[dict[str, Any]]:
                 "Agent recommendation display",
                 "Evaluation checklist",
                 "Manual live-data batch testing",
+                "Approval action UI",
+                "Policy Center UI",
+                "Connector Health UI",
+                "Simulation history",
             ],
-            "next": ["Approval action UI", "Simulation history", "Role-based views"],
+            "next": ["Role-based views after production identity is selected"],
         },
     ]
 
@@ -703,8 +722,8 @@ def agent_recommendations(context: dict[str, Any], policy_result: dict[str, Any]
     ]
 
 
-def check_consent(context: dict[str, Any]) -> dict[str, Any]:
-    allowed = not DEFAULT_POLICIES["consent_required"] or context["customer"]["personalization_allowed"]
+def check_consent(context: dict[str, Any], policies: dict[str, Any]) -> dict[str, Any]:
+    allowed = not policies["consent_required"] or context["customer"]["personalization_allowed"]
     return policy_check(
         "policy.consent.personalization.demo_v1",
         "pass" if allowed else "block",
@@ -713,8 +732,8 @@ def check_consent(context: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-def check_margin(context: dict[str, Any]) -> dict[str, Any]:
-    ok = context["margin"]["average_margin_percent"] >= DEFAULT_POLICIES["minimum_average_margin_percent"]
+def check_margin(context: dict[str, Any], policies: dict[str, Any]) -> dict[str, Any]:
+    ok = context["margin"]["average_margin_percent"] >= policies["minimum_average_margin_percent"]
     return policy_check(
         "policy.margin.floor.demo_v1",
         "pass" if ok else "review",
@@ -723,17 +742,17 @@ def check_margin(context: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-def check_fraud(context: dict[str, Any]) -> dict[str, Any]:
+def check_fraud(context: dict[str, Any], policies: dict[str, Any]) -> dict[str, Any]:
     score = context["fraud"]["risk_score"]
-    if score >= DEFAULT_POLICIES["block_fraud_risk_threshold"]:
+    if score >= policies["block_fraud_risk_threshold"]:
         return policy_check("policy.fraud.block.demo_v1", "block", "Fraud score is above hard-block threshold.", "critical")
-    if score >= DEFAULT_POLICIES["review_fraud_risk_threshold"]:
+    if score >= policies["review_fraud_risk_threshold"]:
         return policy_check("policy.fraud.review.demo_v1", "review", "Fraud score requires human review.", "warning")
     return policy_check("policy.fraud.allow.demo_v1", "pass", "Fraud score is inside allowed range.", "info")
 
 
-def check_basket_exposure(context: dict[str, Any]) -> dict[str, Any]:
-    review = context["basket"]["subtotal"] >= DEFAULT_POLICIES["human_review_basket_threshold"]
+def check_basket_exposure(context: dict[str, Any], policies: dict[str, Any]) -> dict[str, Any]:
+    review = context["basket"]["subtotal"] >= policies["human_review_basket_threshold"]
     return policy_check(
         "policy.exposure.basket.demo_v1",
         "review" if review else "pass",

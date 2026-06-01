@@ -60,23 +60,41 @@ It redacts:
 2. Click **Safe checkout offer**.
    - Expected: policy decision is `allow`.
    - Expected: execution status is `completed`.
-3. Click **Medium fraud review**.
+3. Click **Run And Store**.
+   - Expected: decision appears under Stored Decisions.
+   - Expected: dashboard total decisions increases.
+4. Click **Medium fraud review**, then **Run And Store**.
    - Expected: approval queue is `1`.
    - Expected: execution status is `awaiting_approval`.
-4. Click **High fraud block**.
+5. Open **Approvals** tab.
+   - Expected: pending approval is visible.
+   - Click **Approve**.
+   - Expected: execution becomes `completed`.
+6. Click **High fraud block**.
    - Expected: policy decision is `block`.
    - Expected: action type is fraud case creation.
-5. Click **Low margin review**.
+7. Click **Low margin review**.
    - Expected: margin policy requires review.
-6. Click **Missing consent**.
+8. Click **Missing consent**.
    - Expected: consent policy blocks personalization.
-7. Open **Live Data** tab.
+9. Open **Live Data** tab.
    - Add `email`, `phone`, and `card_number` to the JSON.
    - Run Live Data Gateway.
    - Expected: sensitive fields are removed in accepted output.
-8. Change `event_type` to `unknown.event`.
+10. Change `event_type` to `unknown.event`.
    - Expected: event is rejected with `UNSUPPORTED_EVENT_TYPE`.
-9. Open **Audit** tab.
+11. Open **Policies** tab.
+    - Change a threshold.
+    - Save policy.
+    - Run a scenario again.
+    - Expected: stored policy is used for later Flask runs.
+12. Open **Connectors** tab.
+    - Mark a connector degraded or down.
+    - Expected: connector card updates.
+13. Open **Simulation** tab.
+    - Run simulation for every scenario.
+    - Expected: simulation history appears.
+14. Open **Audit** tab.
    - Expected: decision request, policy, plan, action graph, and receipt records are visible.
-10. Open **Tests** tab.
+15. Open **Tests** tab.
    - Expected: automated matrix and current scenario evaluation are visible.
